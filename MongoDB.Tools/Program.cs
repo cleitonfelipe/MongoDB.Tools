@@ -1,12 +1,9 @@
 ﻿using MongoDB.Bson;
-using MongoDB.Bson.IO;
-using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+using System.Net.Security;
 using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 
 namespace MongoDB.Tools
 {
@@ -14,29 +11,54 @@ namespace MongoDB.Tools
     {
         static void Main(string[] args)
         {
-            string connectionString = $@"mongodb://poc-cosmo-db:lujwqRyLNdWbpkxRaMy8Co6nwWIB8M3bTkisxJgdGyh5q6eEh9BfGbgDX4rMQex2xNaIZhciWl4fFVZNV2BPTw==@poc-cosmo-db.documents.azure.com:10255/?ssl=true&replicaSet=globaldb";
+            string connectionString = $@"<connectionstring>";
+            string pathToCAFile = @"<path/certicate file>";
+
+            X509Store localTrustStore = new X509Store(StoreName.Root);
+            X509Certificate2Collection certificateCollection = new X509Certificate2Collection();
+            //certificateCollection.Import(pathToCAFile);
+            certificateCollection.ImportFromPem(pathToCAFile);
+            //var cert = new X509Certificate2(pathToCAFile);
+
+            try
+            {
+                localTrustStore.Open(OpenFlags.ReadWrite);
+                localTrustStore.AddRange(certificateCollection);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Root certificate import failed: " + ex.Message);
+                throw;
+            }
+            finally
+            {
+                localTrustStore.Close();
+            }
+
             MongoClientSettings settings = MongoClientSettings.FromUrl(new MongoUrl(connectionString));
-            settings.SslSettings = new SslSettings() { EnabledSslProtocols = SslProtocols.Tls12 };
+            settings.SslSettings = new SslSettings
+            {
+                EnabledSslProtocols = SslProtocols.Tls12,
+                ServerCertificateValidationCallback = delegate (object s, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
+                {
+                    return certificate.GetCertHashString() == "<Hexadecimal Certificate hash value>";
+                }
+            };
             var client = new MongoClient(settings);
 
-            //BsonClassMap.RegisterClassMap<Admissao>(cm => {
-            //    cm.AutoMap();
-            //    cm.GetMemberMap(c => c.comments).;
-            //});
+            var database = client.GetDatabase("<DatabaseName>");
+            var Collection = database.GetCollection<Model>("ColletionName");
 
-            var database = client.GetDatabase("AdmissaoDigital");
-            var Collection = database.GetCollection<Admissao>("ContratosAdmissao");
+            try
+            {
+                var dados = Collection.Find(new BsonDocument()).CountDocuments();
 
-            var dados = Collection.Find(new BsonDocument()).ToList();
-
-            //StreamWriter streamWriter = new StreamWriter(@"C:\Users\omehe\Desktop\FileMongo\scriptBackup.json");
-
-            //foreach (var item in dados)
-            //{
-            //    streamWriter.WriteLine(item.ToJson());
-            //}
-
-            //streamWriter.Close();
+                Console.WriteLine($"{dados}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
         }
     }
 }
