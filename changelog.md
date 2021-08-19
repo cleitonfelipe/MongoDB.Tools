@@ -1,3 +1,12 @@
+-Update
+-update changelog.html
+-test changelog.md
+-test changelog.html
+-test changelog
+-Merge pull request #1 from cleitonfelipe/development
+-Update
+-Create README.md
+-Add project
 
 * __Update__
 
